@@ -3,3 +3,4 @@ ocr_env/
 *.jpg
 *.json
 /__pycache__
+/output

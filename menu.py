@@ -1,10 +1,12 @@
 import customtkinter as ctk
 import tkinter as tk
+import threading
 from PIL import Image
 from tkinter import filedialog
 from tkinter import ttk
 import os
 from fastOCR import fast_ocr_simple
+from safeOCR import AccurateOCRResult
 
 class MenuApp:
 
@@ -16,6 +18,7 @@ class MenuApp:
     self.root.geometry(f"{1100}x{580}")
     self.all_img_paths = []
     self.MAX_COLUMNS = 7
+    self.accurate_ocr = None
 
   def destroyCurrentMenu(self):
       for widget in self.root.winfo_children():
@@ -55,7 +58,7 @@ class MenuApp:
     self.root.saveAllImagesAccurate = ctk.CTkButton(
         master=self.root.sidebar_frame,
         text="Save all Images (Accurate Mode)",
-        #command=self.save_all_images_accurate,
+        command=self.save_all_images_accurate,
         font=ctk.CTkFont(size=10, weight="bold"),
         corner_radius=15,
         hover_color="#1F75FE"
@@ -131,9 +134,84 @@ class MenuApp:
         self.update_listbox()
 
   def save_all_images_fast(self):
-    for img_path in self.all_img_paths:
-        fast_ocr_simple(img_path)
-    print("All images processed in Fast Mode.")
+    if not self.all_img_paths:
+        return
+    processing_window = ctk.CTkFrame(self.root)
+    processing_window.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    processing_label = ctk.CTkLabel(
+            master=processing_window,
+            text=f"Processing 0/{len(self.all_img_paths)} images in Fast Mode...",
+            font=ctk.CTkFont(size=12, weight="bold")
+    )
+    processing_label.pack(pady=20)
+
+    # Worker runs in background thread; GUI updates are scheduled with .after
+    def worker():
+        total = len(self.all_img_paths)
+        for i, img_path in enumerate(self.all_img_paths, start=1):
+            try:
+                fast_ocr_simple(img_path)
+            except Exception as e:
+                print(f"Error processing {img_path}: {e}")
+            self.root.after(0, lambda i=i, total=total: processing_label.configure(text=f"Processing {i}/{total} images in Fast Mode..."))
+        def finish():
+            processing_window.destroy()
+            self.set_ui_enabled(True)
+        self.root.after(0, finish)
+
+    self.set_ui_enabled(False)
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+  
+  def save_all_images_accurate(self):
+    if not self.all_img_paths:
+        return
+    self.set_ui_enabled(False)
+    if self.accurate_ocr is None:
+        self.accurate_ocr = AccurateOCRResult()
+    processing_window = ctk.CTkFrame(self.root)
+    processing_window.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    processing_label = ctk.CTkLabel(
+            master=processing_window,
+            text=f"Processing 0/{len(self.all_img_paths)} images in Fast Mode...",
+            font=ctk.CTkFont(size=12, weight="bold")
+    )
+    processing_label.pack(pady=20)
+
+    # Worker runs in background thread; GUI updates are scheduled with .after
+    def worker():
+        total = len(self.all_img_paths)
+        for i, img_path in enumerate(self.all_img_paths, start=1):
+            try:
+                self.accurate_ocr.accurate_ocr_simple(img_path)
+            except Exception as e:
+                print(f"Error processing {img_path}: {e}")
+            self.root.after(0, lambda i=i, total=total: processing_label.configure(text=f"Processing {i}/{total} images in Fast Mode..."))
+        def finish():
+            processing_window.destroy()
+            self.set_ui_enabled(True)
+        self.root.after(0, finish)
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+  
+  def set_ui_enabled(self,enabled: bool):
+    state = "normal" if enabled else "disabled"
+    try:
+        self.root.clearAllImages.configure(state=state)
+        self.root.saveAllImagesFast.configure(state=state)
+        self.root.saveAllImagesAccurate.configure(state=state)
+        self.root.addOneImageButton.configure(state=state)
+        self.root.addFolderButton.configure(state=state)
+    except Exception:
+        pass
+    for item in self.root.main_view_frame.winfo_children():
+        for child in item.winfo_children():
+            if isinstance(child, ctk.CTkButton):
+                try:
+                    child.configure(state=state)
+                except Exception:
+                    pass
 
   def update_listbox(self):
     for widget in self.root.main_view_frame.winfo_children():

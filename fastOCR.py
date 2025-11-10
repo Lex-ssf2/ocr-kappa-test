@@ -51,8 +51,10 @@ def fast_ocr_simple(image_path):
   best_result = ""
   best_angle = 0
   actual_img = None
-
   img = cv2.imread(image_path)
+  if img is None or img.size == 0:
+      print(f"Error: Could not read image at {image_path}")
+      return
   for angle in all_angles:
     # preprocess the image
     rotatedImg = rotate_img(img, angle)
@@ -77,6 +79,6 @@ def fast_ocr_simple(image_path):
   # Mode 6 is to assume a single uniform block of text which what mostly receipts are
   config_final = r'-l fra+eng+es --psm 6'
   best_result = pytesseract.image_to_string(actual_img, config=config_final)
-  print(f"Best angle: {best_angle}")
-  print(best_result)
-  return best_result,best_angle
+  output_txt_path = "./output/" + image_path.split("/")[-1].split(".")[0] + "_fastOCR.txt"
+  with open(output_txt_path, "w", encoding="utf-8") as f:
+      f.write(best_result)

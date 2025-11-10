@@ -1,6 +1,10 @@
 from paddleocr import PaddleOCR
 # This script is to keep all the paddle ocr related methods
 
+"""
+TODO: Verify if the image is valid before processing like corrupted images, etc.
+"""
+
 class AccurateOCRResult:
     def __init__(self):
         self.ocr = PaddleOCR(use_angle_cls=True, lang='en')  # need to run only once to load model into memory

@@ -6,6 +6,11 @@ from PIL import Image
 # This script is to keep all the tesseract related methods
 
 """
+TODO: Verify if the image is valid before processing like corrupted images, etc.
+Make it like a class (? althought doesnt benefit from it much like the paddle ocr one
+"""
+
+"""
 Attributes
 ----------
 imagen_cv2 : vec2 image

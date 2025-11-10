@@ -1,5 +1,4 @@
 import time
-from fastOCR import fast_ocr_simple
 from safeOCR import AccurateOCRResult
 from menu import MenuApp
      

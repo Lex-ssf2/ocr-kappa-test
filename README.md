@@ -6,6 +6,7 @@
 [Pytesseract](https://pypi.org/project/pytesseract/)
 [OpenCV](https://pypi.org/project/opencv-python/#installation-and-usage)
 [PaddleOCR](https://pypi.org/project/paddleocr/2.4/)
+[CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)
 
 ## Installing dependencies
 ### Tesseract
@@ -33,4 +34,9 @@ pip install opencv-python-headless
 - No GPU
 pip install paddlepaddle -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install "paddleocr>=2.0.1"
+```
+
+### Custom TKinter
+```
+pip install customtkinter
 ```

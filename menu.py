@@ -167,58 +167,82 @@ class MenuApp:
     if not self.all_img_paths:
         return
     self.set_ui_enabled(False)
+    self.root.update()
+    self.root.update_idletasks()
     if self.accurate_ocr is None:
         self.accurate_ocr = AccurateOCRResult()
+        print("Accurate OCR model initialized for batch processing.")
     processing_window = ctk.CTkFrame(self.root)
     processing_window.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
     processing_label = ctk.CTkLabel(
             master=processing_window,
-            text=f"Processing 0/{len(self.all_img_paths)} images in Fast Mode...",
+            text=f"Processing 0/{len(self.all_img_paths)} images in Accuracy Mode...",
             font=ctk.CTkFont(size=12, weight="bold")
     )
     processing_label.pack(pady=20)
 
-    # Worker runs in background thread; GUI updates are scheduled with .after
-    def worker():
-        total = len(self.all_img_paths)
-        for i, img_path in enumerate(self.all_img_paths, start=1):
-            try:
-                self.accurate_ocr.accurate_ocr_simple(img_path)
-            except Exception as e:
-                print(f"Error processing {img_path}: {e}")
-            self.root.after(0, lambda i=i, total=total: processing_label.configure(text=f"Processing {i}/{total} images in Fast Mode..."))
-        def finish():
-            processing_window.destroy()
-            self.set_ui_enabled(True)
-        self.root.after(0, finish)
-
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
+    # Doesnt uses multithreading due to paddle ocr issues with it because it is already multithreaded internally
+    for i, img_path in enumerate(self.all_img_paths, start=1):
+        try:
+            self.accurate_ocr.accurate_ocr_simple(img_path)
+        except Exception as e:
+            print(f"Error processing {img_path}: {e}")
+        processing_label.configure(text=f"Processing {i}/{len(self.all_img_paths)} images in Accuracy Mode...")
+        self.root.update_idletasks()
+    processing_window.destroy()
+    self.set_ui_enabled(True)
   
   def set_ui_enabled(self,enabled: bool):
     state = "normal" if enabled else "disabled"
-    try:
-        self.root.clearAllImages.configure(state=state)
-        self.root.saveAllImagesFast.configure(state=state)
-        self.root.saveAllImagesAccurate.configure(state=state)
-        self.root.addOneImageButton.configure(state=state)
-        self.root.addFolderButton.configure(state=state)
-    except Exception:
-        pass
-    for item in self.root.main_view_frame.winfo_children():
-        for child in item.winfo_children():
-            if isinstance(child, ctk.CTkButton):
-                try:
-                    child.configure(state=state)
-                except Exception:
-                    pass
+    if enabled == False:
+      self.overlay_frame = ctk.CTkFrame(self.root, fg_color="transparent", corner_radius=0)
+      self.overlay_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+      self.overlay_frame.lift() 
+      self.root.update()
+    else:
+      if hasattr(self, 'overlay_frame'):
+          self.overlay_frame.destroy()
+                
+  def create_options_menu(self, path):
+    optionsFrame = ctk.CTkFrame(self.root)
+    optionsFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    def close_options():
+        optionsFrame.destroy()
+        self.set_ui_enabled(True)
+
+    def accuracy_mode():
+        if self.accurate_ocr is None:
+            self.accurate_ocr = AccurateOCRResult()
+        self.accurate_ocr.accurate_ocr_simple(path)
+        self.set_ui_enabled(False)
+        close_options()
+
+    def fast_mode():
+        fast_ocr_simple(path)
+        self.set_ui_enabled(False)
+        close_options()
+
+    fast_button = ctk.CTkButton(
+        master=optionsFrame,
+        text="Save this Image (Fast Mode)",
+        command=fast_mode
+    )
+    fast_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+    accuracy_button = ctk.CTkButton(
+        master=optionsFrame,
+        text="Save this Image (Accuracy Mode)",
+        command=accuracy_mode
+    )
+    accuracy_button.pack(side=tk.LEFT, padx=5, pady=5)
+
 
   def update_listbox(self):
     for widget in self.root.main_view_frame.winfo_children():
             widget.destroy()
     MAX_WIDTH = 100
     MAX_HEIGHT = 100
-    self.MAX_COLUMNS = self.root.main_view_frame.winfo_width() // (MAX_WIDTH + 20)
+    self.MAX_COLUMNS = self.root.main_view_frame.winfo_width() // (MAX_WIDTH * 2)
     for index, img_path in enumerate(self.all_img_paths):
         try:
             img_pil = Image.open(img_path)
@@ -229,12 +253,15 @@ class MenuApp:
                 master=self.root.main_view_frame, 
                 fg_color="transparent"
             )
-            img_label = ctk.CTkLabel(
+            img_label = ctk.CTkButton(
                 master=item_frame,
                 image=img_tk,
                 text=os.path.basename(img_path)[:15],
                 compound="top",
-                font=ctk.CTkFont(size=12, weight="bold")
+                command=lambda path=img_path: self.create_options_menu(path),
+                font=ctk.CTkFont(size=12, weight="bold"),
+                bg_color="transparent",
+                fg_color="transparent"
             )
             item_frame.grid(
                 row=index // self.MAX_COLUMNS,

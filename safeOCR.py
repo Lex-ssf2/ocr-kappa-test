@@ -11,6 +11,7 @@ class AccurateOCRResult:
         self.rec_texts = []
         self.rec_scores = []
         self.rec_boxes = []
+        print("Accurate OCR model loaded successfully.")
 
     """
     Attributes

@@ -136,6 +136,7 @@ class MenuApp:
   def save_all_images_fast(self):
     if not self.all_img_paths:
         return
+    self.set_ui_enabled(False)
     processing_window = ctk.CTkFrame(self.root)
     processing_window.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
     processing_label = ctk.CTkLabel(
@@ -158,8 +159,6 @@ class MenuApp:
             processing_window.destroy()
             self.set_ui_enabled(True)
         self.root.after(0, finish)
-
-    self.set_ui_enabled(False)
     t = threading.Thread(target=worker, daemon=True)
     t.start()
   
@@ -204,10 +203,13 @@ class MenuApp:
           self.overlay_frame.destroy()
                 
   def create_options_menu(self, path):
-    optionsFrame = ctk.CTkFrame(self.root)
-    optionsFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    if hasattr(self.root, 'optionsFrame'):
+        self.root.optionsFrame.destroy()
+        print("Destroyed existing optionsFrame.")
+    self.root.optionsFrame = ctk.CTkFrame(self.root)
+    self.root.optionsFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
     def close_options():
-        optionsFrame.destroy()
+        self.root.optionsFrame.destroy()
         self.set_ui_enabled(True)
 
     def accuracy_mode():
@@ -223,14 +225,14 @@ class MenuApp:
         close_options()
 
     fast_button = ctk.CTkButton(
-        master=optionsFrame,
+        master=self.root.optionsFrame,
         text="Save this Image (Fast Mode)",
         command=fast_mode
     )
     fast_button.pack(side=tk.LEFT, padx=5, pady=5)
 
     accuracy_button = ctk.CTkButton(
-        master=optionsFrame,
+        master=self.root.optionsFrame,
         text="Save this Image (Accuracy Mode)",
         command=accuracy_mode
     )

@@ -5,8 +5,7 @@ from PIL import Image
 from tkinter import filedialog
 from tkinter import ttk
 import os
-from fastOCR import fast_ocr_simple
-from safeOCR import AccurateOCRResult
+from textDetector import textOrientationDetection
 
 class MenuApp:
 
@@ -19,6 +18,7 @@ class MenuApp:
     self.all_img_paths = []
     self.MAX_COLUMNS = 7
     self.accurate_ocr = None
+    self.text_detector = textOrientationDetection()
 
   def destroyCurrentMenu(self):
       for widget in self.root.winfo_children():
@@ -55,17 +55,8 @@ class MenuApp:
         corner_radius=15,
         hover_color="#1F75FE"
     )
-    self.root.saveAllImagesAccurate = ctk.CTkButton(
-        master=self.root.sidebar_frame,
-        text="Save all Images (Accurate Mode)",
-        command=self.save_all_images_accurate,
-        font=ctk.CTkFont(size=10, weight="bold"),
-        corner_radius=15,
-        hover_color="#1F75FE"
-    )
     self.root.clearAllImages.grid(row=1, column=0, padx=20, pady=10)
     self.root.saveAllImagesFast.grid(row=2, column=0, padx=20, pady=10)
-    self.root.saveAllImagesAccurate.grid(row=3, column=0, padx=20, pady=10)
     # Top bar elements
     self.root.addOneImageButton = ctk.CTkButton(
             master=self.root.topbar_frame,
@@ -145,13 +136,18 @@ class MenuApp:
             font=ctk.CTkFont(size=12, weight="bold")
     )
     processing_label.pack(pady=20)
-
+    with open("output/orientation.txt", "w") as f:
+        f.write("")  # Clear previous contents
     # Worker runs in background thread; GUI updates are scheduled with .after
     def worker():
         total = len(self.all_img_paths)
         for i, img_path in enumerate(self.all_img_paths, start=1):
             try:
-                fast_ocr_simple(img_path)
+                self.text_detector.detect_textBox(img_path)
+                self.text_detector.detect_orientation()
+                angle = self.text_detector.detect_orientation()
+                with open("output/orientation.txt", "a") as f:
+                    f.write(f"{img_path}: {angle}\n")
             except Exception as e:
                 print(f"Error processing {img_path}: {e}")
             self.root.after(0, lambda i=i, total=total: processing_label.configure(text=f"Processing {i}/{total} images in Fast Mode..."))
@@ -168,9 +164,6 @@ class MenuApp:
     self.set_ui_enabled(False)
     self.root.update()
     self.root.update_idletasks()
-    if self.accurate_ocr is None:
-        self.accurate_ocr = AccurateOCRResult()
-        print("Accurate OCR model initialized for batch processing.")
     processing_window = ctk.CTkFrame(self.root)
     processing_window.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
     processing_label = ctk.CTkLabel(
@@ -183,7 +176,11 @@ class MenuApp:
     # Doesnt uses multithreading due to paddle ocr issues with it because it is already multithreaded internally
     for i, img_path in enumerate(self.all_img_paths, start=1):
         try:
-            self.accurate_ocr.accurate_ocr_simple(img_path)
+            self.text_detector.detect_textBox(img_path)
+            self.text_detector.detect_orientation()
+            angle = self.text_detector.detect_orientation()
+            with open("output/orientation.txt", "a") as f:
+                f.write(f"{img_path}: {angle}\n")
         except Exception as e:
             print(f"Error processing {img_path}: {e}")
         processing_label.configure(text=f"Processing {i}/{len(self.all_img_paths)} images in Accuracy Mode...")
@@ -212,15 +209,11 @@ class MenuApp:
         self.root.optionsFrame.destroy()
         self.set_ui_enabled(True)
 
-    def accuracy_mode():
-        if self.accurate_ocr is None:
-            self.accurate_ocr = AccurateOCRResult()
-        self.accurate_ocr.accurate_ocr_simple(path)
-        self.set_ui_enabled(False)
-        close_options()
-
     def fast_mode():
-        fast_ocr_simple(path)
+        self.text_detector.detect_textBox(path)
+        angle = self.text_detector.detect_orientation()
+        with open("output/orientation.txt", "w") as f:
+            f.write(f"{path}: {angle}\n")
         self.set_ui_enabled(False)
         close_options()
 
@@ -230,13 +223,6 @@ class MenuApp:
         command=fast_mode
     )
     fast_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-    accuracy_button = ctk.CTkButton(
-        master=self.root.optionsFrame,
-        text="Save this Image (Accuracy Mode)",
-        command=accuracy_mode
-    )
-    accuracy_button.pack(side=tk.LEFT, padx=5, pady=5)
 
 
   def update_listbox(self):
